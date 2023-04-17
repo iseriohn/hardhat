@@ -1002,9 +1002,11 @@ export class EthModule {
       throw error;
     }
 
+/** Speeding up
     if (!tx.isSigned()) {
       throw new InvalidArgumentsError("Invalid Signature");
     }
+*/
 
     if (tx instanceof Transaction) {
       this._validateEip155HardforkRequirement(tx);
