@@ -377,9 +377,34 @@ async function main() {
   }
 }
 
+import fs from "fs";
+var profiler = require("v8-profiler-next");
+profiler.startProfiling("hello", true);
+
 main()
   .then(() => process.exit(process.exitCode))
+  .then(() => {
+    process.exit(process.exitCode)
+  })
   .catch((error) => {
     console.error(error);
     process.exit(1);
   });
+
+async function delay(time: number) {
+  return new Promise(resolve => setTimeout(resolve, time));
+}
+delay(150000).then(() => {
+  const profile = profiler.stopProfiling("hello");
+  profile.export((error: string, result: string) => {
+    if (error) {
+      console.log("erro", error);
+    } else {
+      fs.writeFileSync(
+        "/home/yj348/tmp/profilierFile.cpuprofile",
+        result
+      );
+    }
+  });
+  console.log("after 150s");
+});

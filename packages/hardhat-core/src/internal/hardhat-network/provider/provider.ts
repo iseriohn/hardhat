@@ -235,7 +235,7 @@ export class HardhatNetworkProvider
     throw new MethodNotFoundError(`Method ${method} not found`);
   }
 
-  private async _init(initialState: State, blockTimestamp?: bigint, blockTimestamp?: bigint, coinbase?: Address) {
+  private async _init(initialState: State, gasUsed?: bigint, blockTimestamp?: bigint, coinbase?: Address) {
     if (this._node !== undefined) {
       return;
     }

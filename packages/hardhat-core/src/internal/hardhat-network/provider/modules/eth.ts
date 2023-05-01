@@ -1029,7 +1029,10 @@ export class EthModule {
     try {
       tx = TransactionFactory.fromSerializedData(rawTx, {
         common: this._common,
+        disableMaxInitCodeSizeCheck: true,
       });
+
+      this._validateEip3860MaxInitCodeSize(tx.to?.toBuffer(), tx.data);
     } catch (error) {
       // This section of the code is incredibly dependant of TransactionFactory.fromSerializedData
       // AccessListEIP2930Transaction.fromSerializedTx and Transaction.fromSerializedTx

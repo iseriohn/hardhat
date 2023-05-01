@@ -152,7 +152,9 @@ Enable the "allowBlocksWithSameTimestamp" option in the Hardhat network configur
     }
     const result = await this._node.mineBlock(timestamp);
 
+/** Speeding up
     await this._logBlock(result);
+*/
 
     return numberToRpcQuantity(0);
   }
