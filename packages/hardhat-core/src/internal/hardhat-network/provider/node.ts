@@ -142,7 +142,7 @@ export class HardhatNode extends EventEmitter {
   public static async create(
     config: NodeConfig,
     initialState: State,
-    gasUsed?: bigint | undefined,
+    gasUsed?: bigint | undefined, //TODO: replace with blockBuilder instance!
     blockTimestamp?: bigint | undefined,
   ): Promise<[Common, HardhatNode]> {
     const {
@@ -586,6 +586,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
   public async myMineBlock() {
     try {
       const res = await this._blockBuilder.build();
+      console.log(res);
     } catch (err) {
       throw err;
     }
@@ -1969,9 +1970,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
           const txResult = await blockBuilder.addTransaction(tx);
 
           console.log(tx);
-          console.log("======");
           console.log(txResult);
-          console.log("===============");
 
 /** Speeding up
           traces.push(await this._gatherTraces(txResult.execResult));
@@ -1984,6 +1983,9 @@ Hardhat Network's forking functionality only works with blocks from at least spu
       }
 
       const block = await blockBuilder.build();
+      
+          console.log("===============");
+      console.log(block);
 
 /** Speeding up
       await this._txPool.updatePendingAndQueued();

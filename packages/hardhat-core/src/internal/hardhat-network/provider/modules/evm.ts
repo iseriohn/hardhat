@@ -53,6 +53,7 @@ export class EvmModule {
         return this._mineAction(...this._mineParams(params));
 
       case "evm_myMine":
+        console.log("evm_myMine");
         await this._node.myMineBlock();
         return numberToRpcQuantity(0); 
 
