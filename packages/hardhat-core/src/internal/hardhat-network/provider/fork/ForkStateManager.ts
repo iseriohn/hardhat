@@ -54,7 +54,8 @@ export class ForkStateManager implements StateManager {
 
   constructor(
     private readonly _jsonRpcClient: JsonRpcClient,
-    private readonly _forkBlockNumber: bigint
+    private readonly _forkBlockNumber: bigint,
+    private _initialState: State,
   ) {
     this._state = ImmutableMap<string, ImmutableRecord<AccountState>>();
 
@@ -95,7 +96,8 @@ export class ForkStateManager implements StateManager {
   public copy(): ForkStateManager {
     const fsm = new ForkStateManager(
       this._jsonRpcClient,
-      this._forkBlockNumber
+      this._forkBlockNumber,
+      this._initialState,
     );
     fsm._state = this._state;
     fsm._stateRoot = this._stateRoot;
@@ -105,13 +107,43 @@ export class ForkStateManager implements StateManager {
     return fsm;
   }
 
+  public getForkBlockNumber(): bigint {
+    return this._forkBlockNumber
+  }
+
+  public getState(): State {
+    return this._state
+  }
+  
+  public getInitialState(): State {
+    return this._initialState
+  }
+
+  public getContextBlockNumber(): bigint {
+    return this._contextBlockNumber
+  }
+  
+  public getJsonRpcClient(): JsonRpcClient {
+    return this._jsonRpcClient
+  }
+  
   public async getAccount(address: Address): Promise<Account> {
     const localAccount = this._state.get(address.toString());
+    const localInitialAccount = this._initialState.get(address.toString());
+    let localNonce = localAccount?.get("nonce");
+    let localBalance = localAccount?.get("balance");
+    let localCode = localAccount?.get("code");
 
-    const localNonce = localAccount?.get("nonce");
-    const localBalance = localAccount?.get("balance");
-    const localCode = localAccount?.get("code");
-
+    if (localNonce === undefined) {
+      localNonce = localInitialAccount?.get("nonce");
+    }
+    if (localBalance === undefined) {
+      localBalance = localInitialAccount?.get("balance");
+    }
+    if (localCode === undefined) {
+      localCode = localInitialAccount?.get("code");
+    }
+    
     let nonce: Buffer | bigint | undefined =
       localNonce !== undefined ? toBuffer(localNonce) : undefined;
 
@@ -138,7 +170,14 @@ export class ForkStateManager implements StateManager {
       if (code === undefined) {
         code = accountData.code;
       }
+
+      const codeHash = keccak256(code);
+      const account = Account.fromAccountData({ nonce, balance, codeHash });
+      this._putInitialAccount(address, account);
+      //this._putAccount(address, account);
+      return account;
     }
+
 
     const codeHash = keccak256(code);
     // We ignore stateRoot since we found that it is not used anywhere of interest to us
@@ -162,8 +201,21 @@ export class ForkStateManager implements StateManager {
     this._state = this._state.set(hexAddress, account);
   }
 
+  public async putInitialContractCode(address: Address, value: Buffer): Promise<void> {
+    const hexAddress = address.toString();
+    const account = (this._initialState.get(hexAddress) ?? makeAccountState()).set(
+      "code",
+      bufferToHex(value)
+    );
+    this._initialState = this._initialState.set(hexAddress, account);
+  }
+
   public async getContractCode(address: Address): Promise<Buffer> {
-    const localCode = this._state.get(address.toString())?.get("code");
+    var localCode = this._state.get(address.toString())?.get("code");
+    if (localCode === undefined) {
+      localCode = this._initialState.get(address.toString())?.get("code");
+    }
+
     if (localCode !== undefined) {
       return toBuffer(localCode);
     }
@@ -172,6 +224,8 @@ export class ForkStateManager implements StateManager {
       address,
       this._contextBlockNumber
     );
+
+    this.putInitialContractCode(address, accountData.code);
 
     return accountData.code;
   }
@@ -184,17 +238,13 @@ export class ForkStateManager implements StateManager {
       throw new Error("Storage key must be 32 bytes long");
     }
 
-    const account = this._state.get(address.toString());
-    const contractStorageCleared = account?.get("storageCleared") ?? false;
-    const localValue = account?.get("storage").get(bufferToHex(key));
-
+    var localValue = this._state.get(address.toString())?.get("storage")?.get(bufferToHex(key));
+    if (localValue === undefined) {
+      localValue = this._initialState.get(address.toString())?.get("storage")?.get(bufferToHex(key));
+    }
+    
     if (localValue !== undefined) {
       return toBuffer(localValue);
-    }
-
-    const slotCleared = localValue === null;
-    if (contractStorageCleared || slotCleared) {
-      return toBuffer([]);
     }
 
     const remoteValue = await this._jsonRpcClient.getStorageAt(
@@ -202,6 +252,10 @@ export class ForkStateManager implements StateManager {
       bufferToBigInt(key),
       this._contextBlockNumber
     );
+
+    const value = unpadBuffer(remoteValue);
+
+    this.putInitialContractStorage(address, key, value);
 
     return unpadBuffer(remoteValue);
   }
@@ -239,6 +293,41 @@ export class ForkStateManager implements StateManager {
 
     this._state = this._state.set(hexAddress, account);
   }
+  
+  public async putInitialContractStorage(
+    address: Address,
+    key: Buffer,
+    value: Buffer
+  ): Promise<void> {
+    if (key.length !== 32) {
+      throw new Error("Storage key must be 32 bytes long");
+    }
+
+    if (value.length > 32) {
+      throw new Error("Storage value cannot be longer than 32 bytes");
+    }
+
+    const unpaddedValue = unpadBuffer(value);
+
+    const hexAddress = address.toString();
+    let account = this._initialState.get(hexAddress) ?? makeAccountState();
+    const currentStorage = account.get("storage");
+
+    let newValue: string | null;
+    if (unpaddedValue.length === 0) {
+      // if the value is an empty array or only zeros, the storage is deleted
+      newValue = null;
+    } else {
+      newValue = bufferToHex(unpaddedValue);
+    }
+
+    const newStorage = currentStorage.set(bufferToHex(key), newValue);
+
+    account = account.set("storage", newStorage);
+
+    this._initialState = this._initialState.set(hexAddress, account);
+  }
+
 
   public async clearContractStorage(address: Address): Promise<void> {
     const hexAddress = address.toString();
@@ -405,6 +494,23 @@ export class ForkStateManager implements StateManager {
       localAccount = localAccount.set("code", "0x");
     }
     this._state = this._state.set(hexAddress, localAccount);
+  }
+
+  private _putInitialAccount(address: Address, account: Account): void {
+    // Because the vm only ever modifies the nonce, balance and codeHash using this
+    // method we ignore the stateRoot property
+    const hexAddress = address.toString();
+    let localAccount = this._initialState.get(hexAddress) ?? makeAccountState();
+    localAccount = localAccount
+      .set("nonce", bigIntToHex(account.nonce))
+      .set("balance", bigIntToHex(account.balance));
+
+    // Code is set to empty string here to prevent unnecessary
+    // JsonRpcClient.getCode calls in getAccount method
+    if (account.codeHash.equals(KECCAK256_NULL)) {
+      localAccount = localAccount.set("code", "0x");
+    }
+    this._initialState = this._initialState.set(hexAddress, localAccount);
   }
 
   private _setStateRoot(stateRoot: Buffer) {

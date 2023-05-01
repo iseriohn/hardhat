@@ -40,6 +40,9 @@ export class HardhatModule {
   constructor(
     private readonly _node: HardhatNode,
     private readonly _resetCallback: (forkConfig?: ForkConfig) => Promise<void>,
+    private readonly _myForkCallback: (forkConfig?: ForkConfig) => Promise<void>,
+    private readonly _mySnapshotCallback: () => Promise<void>,
+    private readonly _myResetCallback: () => Promise<void>,
     private readonly _setLoggingEnabledCallback: (
       loggingEnabled: boolean
     ) => void,
@@ -78,6 +81,15 @@ export class HardhatModule {
 
       case "hardhat_reset":
         return this._resetAction(...this._resetParams(params));
+      
+			case "hardhat_myFork":
+        return this._myForkAction(...this._resetParams(params));
+
+      case "hardhat_mySnapshot":
+        return this._mySnapshotAction();
+      
+      case "hardhat_myReset":
+        return this._myResetAction();
 
       case "hardhat_setLoggingEnabled":
         return this._setLoggingEnabledAction(
@@ -229,6 +241,23 @@ export class HardhatModule {
     networkConfig?: RpcHardhatNetworkConfig
   ): Promise<true> {
     await this._resetCallback(networkConfig?.forking);
+    return true;
+  }
+
+  private async _myForkAction(
+    networkConfig?: RpcHardhatNetworkConfig
+  ): Promise<true> {
+    await this._myForkCallback(networkConfig?.forking);
+    return true;
+  }
+
+  private async _mySnapshotAction(): Promise<true> {
+    await this._mySnapshotCallback();
+    return true;
+  }
+
+  private async _myResetAction(): Promise<true> {
+    await this._myResetCallback();
     return true;
   }
 

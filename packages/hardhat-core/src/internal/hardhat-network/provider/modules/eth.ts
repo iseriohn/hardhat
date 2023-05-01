@@ -258,6 +258,11 @@ export class EthModule {
           ...this._sendRawTransactionParams(params)
         );
 
+      case "eth_mySimulateTx":
+        return this._mySimulateTxAction(
+          ...this._sendRawTransactionParams(params)
+        );
+
       case "eth_sendTransaction":
         return this._sendTransactionAction(
           ...this._sendTransactionParams(params)
@@ -1013,6 +1018,65 @@ export class EthModule {
     }
 
     return this._sendTransactionAndReturnHash(tx);
+  }
+
+  // eth_mySimulateTx
+
+  private async _mySimulateTxAction(rawTx: Buffer): Promise<string> {
+		this._validateRawTransactionHardforkRequirements(rawTx);
+    
+    let tx: TypedTransaction;
+    try {
+      tx = TransactionFactory.fromSerializedData(rawTx, {
+        common: this._common,
+      });
+    } catch (error) {
+      // This section of the code is incredibly dependant of TransactionFactory.fromSerializedData
+      // AccessListEIP2930Transaction.fromSerializedTx and Transaction.fromSerializedTx
+      // Please keep it updated.
+
+      if (error instanceof Error) {
+        if (error.message === "invalid RLP: remainder must be zero") {
+          throw new InvalidArgumentsError("Invalid transaction", error);
+        }
+
+        if (error.message.includes("Incompatible EIP155")) {
+          throw new InvalidArgumentsError(
+            "Trying to send an incompatible EIP-155 transaction, signed for another chain.",
+            error
+          );
+        }
+
+        if (
+          error.message.includes("TypedTransaction with ID") &&
+          error.message.includes(" unknown")
+        ) {
+          throw new InvalidArgumentsError(`Invalid transaction`, error);
+        }
+
+        if (error.message.includes("The chain ID does not match")) {
+          const chainId = this._common.chainId();
+          throw new InvalidArgumentsError(
+            `Trying to send a raw transaction with an invalid chainId. The expected chainId is ${chainId}`,
+            error
+          );
+        }
+      }
+
+      throw error;
+    }
+
+/** Speeding up
+    if (!tx.isSigned()) {
+      throw new InvalidArgumentsError("Invalid Signature");
+    }
+*/
+
+    if (tx instanceof Transaction) {
+      this._validateEip155HardforkRequirement(tx);
+    }
+
+    return this._node.mySimulateTransaction(tx);
   }
 
   // eth_sendTransaction

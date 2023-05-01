@@ -52,6 +52,10 @@ export class EvmModule {
       case "evm_mine":
         return this._mineAction(...this._mineParams(params));
 
+      case "evm_myMine":
+        await this._node.myMineBlock();
+        return numberToRpcQuantity(0); 
+
       case "evm_revert":
         return this._revertAction(...this._revertParams(params));
 

@@ -46,7 +46,14 @@ import {
   TracingConfig,
 } from "./node-types";
 
+import { Address } from "@nomicfoundation/ethereumjs-util";
+
 const log = debug("hardhat:core:hardhat-network:provider");
+
+import { AccountState } from "./fork/AccountState";
+import { Map as ImmutableMap, Record as ImmutableRecord } from "immutable";
+
+type State = ImmutableMap<string, ImmutableRecord<AccountState>>;
 
 // Set of methods that are never logged
 const PRIVATE_RPC_METHODS = new Set([
@@ -194,7 +201,8 @@ export class HardhatNetworkProvider
   }
 
   private async _send(method: string, params: any[] = []): Promise<any> {
-    await this._init();
+    const initialState = ImmutableMap<string, ImmutableRecord<AccountState>>();
+    await this._init(initialState);
 
     if (method.startsWith("eth_")) {
       return this._ethModule!.processRequest(method, params);
@@ -227,7 +235,7 @@ export class HardhatNetworkProvider
     throw new MethodNotFoundError(`Method ${method} not found`);
   }
 
-  private async _init() {
+  private async _init(initialState: State, blockTimestamp?: bigint, blockTimestamp?: bigint, coinbase?: Address) {
     if (this._node !== undefined) {
       return;
     }
@@ -250,12 +258,15 @@ export class HardhatNetworkProvider
         this._config.forkConfig !== undefined
           ? this._config.forkCachePath
           : undefined,
-      coinbase: this._config.coinbase ?? DEFAULT_COINBASE,
+      coinbase: 
+        coinbase !== undefined 
+          ? coinbase.toString() 
+          : this._config.coinbase ?? DEFAULT_COINBASE,
       chains: this._config.chains,
       allowBlocksWithSameTimestamp: this._config.allowBlocksWithSameTimestamp,
     };
 
-    const [common, node] = await HardhatNode.create(config);
+    const [common, node] = await HardhatNode.create(config, initialState, gasUsed, blockTimestamp);
 
     this._common = common;
     this._node = node;
@@ -283,6 +294,9 @@ export class HardhatNetworkProvider
     this._hardhatModule = new HardhatModule(
       node,
       (forkConfig?: ForkConfig) => this._reset(miningTimer, forkConfig),
+      (forkConfig?: ForkConfig) => this._myFork(forkConfig),
+      () => this._mySnapshot(),
+      () => this._myReset(),
       (loggingEnabled: boolean) => {
         this._logger.setEnabled(loggingEnabled);
       },
@@ -353,7 +367,44 @@ export class HardhatNetworkProvider
 
     miningTimer.stop();
 
-    await this._init();
+    const initialState = ImmutableMap<string, ImmutableRecord<AccountState>>();
+    await this._init(initialState);
+  }
+
+  private async _myFork(forkConfig?: ForkConfig, timestamp?: bigint) {
+    console.log("My fork");
+    this._config.forkConfig = forkConfig;
+    this._node = undefined;
+    const initialState = ImmutableMap<string, ImmutableRecord<AccountState>>();
+    await this._init(initialState, 0n, timestamp);
+  }
+
+  private async _mySnapshot() {
+    if (this._node === undefined) {
+      return;
+    }
+    const initialState = this._node.getState();
+    const gasUsed = this._node.getGasUsed();
+    const timestamp = this._node.getNextBlockTimestamp();
+    const coinbase = this._node.getCoinbaseAddress();
+    console.log("My snapshot");
+
+    this._node = undefined;
+    await this._init(initialState, gasUsed, timestamp, coinbase);
+  }
+
+  private async _myReset() {
+    if (this._node === undefined) {
+      return;
+    }
+    const initialState = this._node.getInitialState();
+    const gasUsed = this._node.getInitialGasUsed();
+    const timestamp = this._node.getNextBlockTimestamp();
+    const coinbase = this._node.getCoinbaseAddress();
+    console.log("My reset");
+    
+    this._node = undefined;
+    await this._init(initialState, gasUsed, timestamp, coinbase);
   }
 
   private _forwardNodeEvents(node: HardhatNode) {

@@ -126,6 +126,10 @@ import { putGenesisBlock } from "./utils/putGenesisBlock";
 import { txMapToArray } from "./utils/txMapToArray";
 import { RandomBufferGenerator } from "./utils/random";
 
+import { AccountState } from "./fork/AccountState";
+import { Map as ImmutableMap, Record as ImmutableRecord } from "immutable";
+type State = ImmutableMap<string, ImmutableRecord<AccountState>>;
+
 type ExecResult = EVMResult["execResult"];
 
 const log = debug("hardhat:core:hardhat-network:node");
@@ -134,7 +138,10 @@ const log = debug("hardhat:core:hardhat-network:node");
 
 export class HardhatNode extends EventEmitter {
   public static async create(
-    config: NodeConfig
+    config: NodeConfig,
+    initialState: State,
+    gasUsed?: bigint | undefined,
+    blockTimestamp?: bigint | undefined,
   ): Promise<[Common, HardhatNode]> {
     const {
       automine,
@@ -190,12 +197,12 @@ export class HardhatNode extends EventEmitter {
         forkNetworkId
       );
 
-      const forkStateManager = new ForkStateManager(
+      const stateManager = new ForkStateManager(
         forkClient,
-        forkBlockNumber
+        forkBlockNumber,
+        initialState,
       );
-      await forkStateManager.initializeGenesisAccounts(genesisAccounts);
-      stateManager = forkStateManager;
+      await stateManager.initializeGenesisAccounts(genesisAccounts);
 
       blockchain = new ForkBlockchain(forkClient, forkBlockNumber, common);
 
@@ -225,6 +232,8 @@ export class HardhatNode extends EventEmitter {
         hardforkActivations = config.chains.get(forkNetworkId)!.hardforkHistory;
       }
     } else {
+			throw Error("Please specify fork block number in config file!");
+/** Speeding up
       const stateTrie = await makeStateTrie(genesisAccounts);
 
       stateManager = new DefaultStateManager({
@@ -258,6 +267,7 @@ export class HardhatNode extends EventEmitter {
       }
 
       blockchain = hardhatBlockchain;
+*/
     }
 
     const txPool = new TxPool(stateManager, BigInt(blockGasLimit), common);
@@ -369,7 +379,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
   private constructor(
     private readonly _vm: VM,
     private readonly _instanceId: bigint,
-    private readonly _stateManager: StateManager,
+    private readonly _stateManager: ForkStateManager,
     private readonly _blockchain: HardhatBlockchainInterface,
     private readonly _txPool: TxPool,
     private _automine: boolean,
@@ -721,6 +731,14 @@ Hardhat Network's forking functionality only works with blocks from at least spu
 
   public getLatestBlockNumber(): bigint {
     return this._blockchain.getLatestBlockNumber();
+  }
+
+  public getInitialState(): State {
+    return this._stateManager.getInitialState();
+  }
+  
+  public getState(): State {
+    return this._stateManager.getState();
   }
 
   public async getPendingBlockAndTotalDifficulty(): Promise<[Block, bigint]> {
@@ -1837,9 +1855,16 @@ Hardhat Network's forking functionality only works with blocks from at least spu
         } else {
           const txResult = await blockBuilder.addTransaction(tx);
 
+          console.log(tx);
+          console.log("======");
+          console.log(txResult);
+          console.log("===============");
+
+/** Speeding up
           traces.push(await this._gatherTraces(txResult.execResult));
           results.push(txResult);
           receipts.push(txResult.receipt);
+*/
         }
 
         tx = transactionQueue.getNextTransaction();
@@ -2226,16 +2251,20 @@ Hardhat Network's forking functionality only works with blocks from at least spu
       );
     }
 
+/** Speeding up
     return this._stateManager.setStateRoot(
       irregularStateOrUndefined ?? block.header.stateRoot
     );
+*/
   }
 
   private async _restoreBlockContext(stateRoot: Buffer) {
     if (this._stateManager instanceof ForkStateManager) {
       return this._stateManager.restoreForkBlockContext(stateRoot);
     }
+/** Speeding up
     return this._stateManager.setStateRoot(stateRoot);
+*/
   }
 
   private async _correctInitialEstimation(
