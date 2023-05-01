@@ -377,6 +377,14 @@ async function main() {
   }
 }
 
+main()
+.then(() => process.exit(process.exitCode))
+.catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+
+/*
 import fs from "fs";
 var profiler = require("v8-profiler-next");
 profiler.startProfiling("hello", true);
@@ -408,3 +416,5 @@ delay(150000).then(() => {
   });
   console.log("after 150s");
 });
+*/
+
