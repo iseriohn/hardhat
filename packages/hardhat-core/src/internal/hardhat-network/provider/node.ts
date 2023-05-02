@@ -292,8 +292,10 @@ export class HardhatNode extends EventEmitter {
     const parentBlock = await blockchain.getLatestBlock();
 
     let timestamp = blockTimestamp;
-    if (timestamp === undefined) {
-      timestamp = 0n;
+    if (timestamp === undefined || timestamp === 0n) {
+        timestamp = BigInt(getCurrentTimestamp()) +  initialBlockTimeOffset;
+
+      //timestamp = 0n;
     } else if (timestamp !== 0n) {
       const increment = timestamp - parentBlock.header.timestamp;
       if (increment <= 0n) {
@@ -331,6 +333,7 @@ export class HardhatNode extends EventEmitter {
         headerData.baseFeePerGas = parentBlock.header.calcNextBaseFee();
       }
     }
+    //console.log("Init headherData:", headerData);
 
     const blockBuilder = await vm.buildBlock({
       parentBlock,
@@ -342,6 +345,7 @@ export class HardhatNode extends EventEmitter {
       blockBuilder.setGasUsed(gasUsed);
     }
 
+    //console.log("Init blockBuilder:", blockBuilder);
     const instanceId = bufferToBigInt(randomBytes(32));
 
     const node = new HardhatNode(
@@ -1937,11 +1941,14 @@ Hardhat Network's forking functionality only works with blocks from at least spu
 
     headerData.baseFeePerGas = await this.getNextBlockBaseFeePerGas();
 
+    //console.log("Mine headerData:", headerData);
+    
     const blockBuilder = await this._vm.buildBlock({
       parentBlock,
       headerData,
       blockOpts: { calcDifficultyFromHeader: parentBlock.header },
     });
+    //console.log("Mine blockBuilder", blockBuilder);
 
     try {
       const traces: GatherTracesResult[] = [];
