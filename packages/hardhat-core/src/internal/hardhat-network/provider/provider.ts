@@ -372,7 +372,7 @@ export class HardhatNetworkProvider
   }
 
   private async _myFork(forkConfig?: ForkConfig, timestamp?: bigint) {
-    console.log("My fork");
+    //console.log("My fork");
     this._config.forkConfig = forkConfig;
     this._node = undefined;
     const initialState = ImmutableMap<string, ImmutableRecord<AccountState>>();
@@ -387,7 +387,7 @@ export class HardhatNetworkProvider
     const gasUsed = this._node.getGasUsed();
     const timestamp = this._node.getNextBlockTimestamp();
     const coinbase = this._node.getCoinbaseAddress();
-    console.log("My snapshot");
+    //console.log("My snapshot");
 
     this._node = undefined;
     await this._init(initialState, gasUsed, timestamp, coinbase);
@@ -401,7 +401,7 @@ export class HardhatNetworkProvider
     const gasUsed = this._node.getInitialGasUsed();
     const timestamp = this._node.getNextBlockTimestamp();
     const coinbase = this._node.getCoinbaseAddress();
-    console.log("My reset");
+    //console.log("My reset");
     
     this._node = undefined;
     await this._init(initialState, gasUsed, timestamp, coinbase);

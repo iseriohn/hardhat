@@ -575,6 +575,9 @@ Hardhat Network's forking functionality only works with blocks from at least spu
         senderAccount.nonce === tx.nonce
       ) {
         const txResult = await this._blockBuilder.addTransaction(tx);
+          //console.log(tx);
+          //console.log(txResult);
+          //console.log(tx.hash());
       }
     } catch (err) {
       await this._blockBuilder.revert();
@@ -586,7 +589,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
   public async myMineBlock() {
     try {
       const res = await this._blockBuilder.build();
-      console.log(res);
+      //console.log(res);
     } catch (err) {
       throw err;
     }
@@ -1969,8 +1972,9 @@ Hardhat Network's forking functionality only works with blocks from at least spu
         } else {
           const txResult = await blockBuilder.addTransaction(tx);
 
-          console.log(tx);
-          console.log(txResult);
+          //console.log(tx);
+          //console.log(txResult);
+          //console.log(tx.hash());
 
 /** Speeding up
           traces.push(await this._gatherTraces(txResult.execResult));
@@ -1984,8 +1988,8 @@ Hardhat Network's forking functionality only works with blocks from at least spu
 
       const block = await blockBuilder.build();
       
-          console.log("===============");
-      console.log(block);
+      //console.log("===============");
+      //console.log(block);
 
 /** Speeding up
       await this._txPool.updatePendingAndQueued();
