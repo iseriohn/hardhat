@@ -149,6 +149,8 @@ async function main() {
     if (hardhatArguments.version) {
       await printVersionMessage();
       return;
+    } else {
+      await printVersionMessage();
     }
 
     if (hardhatArguments.config === undefined && !isCwdInsideProject()) {
