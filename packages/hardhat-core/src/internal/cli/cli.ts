@@ -137,6 +137,7 @@ async function main() {
     if (hardhatArguments.verbose) {
       Reporter.setVerbose(true);
       debug.enable("hardhat*");
+      console.log("verbose mode");
     }
 
     if (hardhatArguments.emoji) {

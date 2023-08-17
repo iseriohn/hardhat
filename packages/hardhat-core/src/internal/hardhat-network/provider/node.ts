@@ -1981,7 +1981,8 @@ Hardhat Network's forking functionality only works with blocks from at least spu
 
           //console.log(tx);
           //console.log(txResult);
-          //console.log(tx.hash());
+          console.log(tx.hash());
+          console.log(await this._gatherTraces(txResult.execResult));
 
 /** Speeding up
           traces.push(await this._gatherTraces(txResult.execResult));
